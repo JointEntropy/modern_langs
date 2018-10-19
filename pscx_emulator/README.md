@@ -12,7 +12,8 @@ file:///home/hjk/mephim/emul/psx-guide/guide.pdf
 
 
 Compile and run:
+```
 sh clean
 make -f makefile
 ./pscx_main
-
+```
