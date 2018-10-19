@@ -3,6 +3,14 @@
 #include <iostream>
 #include <cassert>
 
+
+//                
+#define assert(message, ...) do { \
+    if(!(__VA_ARGS__)) { \
+         \
+    } \
+} while(0)
+
 uint32_t Cpu::load32(uint32_t addr)
 {
 	return m_inter.load32(addr);
@@ -21,10 +29,16 @@ Cpu::InstructionType Cpu::decodeAndExecute(Instruction instruction)
 	{
 	case /*LUI*/0b001111:
 		//---------------------------------
+		/*
+			LUI -- Load upper immediate
+			Description:
+			The immediate value is shifted left 16 bits and stored in the register. The lower 16 bits are zeroes
+		*/
 		// TODO : call LUI instruction.
 		// Rust:
 		// 0b001111 => self.op_lui(instruction)
 		//---------------------------------
+		instructionType = opcodeLUI(instruction);
 		break;
 	case /*ORI*/0b001101:
 		instructionType = opcodeORI(instruction);
@@ -61,7 +75,12 @@ Cpu::InstructionType Cpu::decodeAndExecute(Instruction instruction)
 Cpu::InstructionType Cpu::runNextInstuction()
 { 
 	// Fixme
-	return INSTRUCTION_TYPE_UNKNOWN;
+	uint32_t pc = m_pc;
+	Instruction instruction = load32(pc);
+	printf("Instruction addr %i \n", pc);
+	m_pc = pc + 4;
+	return decodeAndExecute(instruction);
+	//return INSTRUCTION_TYPE_UNKNOWN;
 }
 
 //--------------------------------------------------------------
@@ -81,7 +100,10 @@ Cpu::InstructionType Cpu::runNextInstuction()
 //---------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeLUI(Instruction instruction)
 {
-	// Fixme
+	uint32_t tmp = instruction.getImmediateValue();
+	uint32_t target = instruction.getRegisterTargetIndex();
+	uint32_t value = tmp << 16;
+	setRegisterValue(target, value);
 	return INSTRUCTION_TYPE_LUI;
 }
 
@@ -101,12 +123,23 @@ Cpu::InstructionType Cpu::opcodeSW(Instruction instruction)
 
 uint32_t Cpu::getRegisterValue(uint32_t index) const
 {
-	assert(index < _countof(m_regs), "Index out of boundaries");
+	// assert(index < _countof(m_regs), "Index out of boundaries");
+
+	if (index >= 32)  //_countof(m_regs)
+	{
+		printf("Get register value::Index out of boundaries.\n");
+	}
+	// printf("Get value of %zu\n", &index);
 	return m_regs[index];
 }
 
 void Cpu::setRegisterValue(uint32_t index, uint32_t value)
 {
-	assert(index < _countof(m_regs), "Index out of boundaries");
+	// assert(index < _countof(m_regs), "Index out of boundaries");
+	if (index >= 32)//_countof(m_regs))
+	{
+		printf("Set register value::Index out of boundaries.\n");
+	}
+	// printf("Set %zu with value %zu\n", &index, &value);
 	if (index > 0) m_regs[index] = value;
 }

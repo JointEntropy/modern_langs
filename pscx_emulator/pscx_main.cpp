@@ -3,11 +3,11 @@
 #include "pscx_interconnect.h"
 
 #include <iostream>
-
+#include "stdlib.h"
 int main()
 {
 	std::string biosPath = "roms/SCPH1001.BIN";
-
+	std::cout << "Hello there"<< std::endl;
 	Bios bios;
 	Bios::BiosState state = bios.loadBios(biosPath);
 

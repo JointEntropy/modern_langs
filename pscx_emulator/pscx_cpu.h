@@ -2,6 +2,9 @@
 
 #include "pscx_interconnect.h"
 #include "pscx_instruction.h"
+#include "string.h"
+#include "stdio.h"
+#include <iostream>
 
 // CPU state
 struct Cpu

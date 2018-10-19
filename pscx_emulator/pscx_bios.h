@@ -28,7 +28,14 @@ struct Range
 	//---------------------------------------------------------
 	bool contains(uint32_t addr, uint32_t &offset)
 	{
-		// Fixme
+		/*
+		И всё таки... что является возвращаемым значением?
+		*/
+		if ((addr >= m_start) && (addr < m_start + m_length))
+		{
+			offset = addr - m_start;
+			return true;
+		}
 		return false;
 	}
 
