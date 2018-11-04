@@ -77,7 +77,7 @@ Cpu::InstructionType Cpu::runNextInstuction()
 	// Fixme
 	uint32_t pc = m_pc;
 	Instruction instruction = load32(pc);
-	printf("Instruction addr %i \n", pc);
+	printf("Instruction addr %d \n", &pc);
 	m_pc = pc + 4;
 	return decodeAndExecute(instruction);
 	//return INSTRUCTION_TYPE_UNKNOWN;

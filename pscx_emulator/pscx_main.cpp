@@ -7,7 +7,7 @@
 int main()
 {
 	std::string biosPath = "roms/SCPH1001.BIN";
-	std::cout << "Hello there"<< std::endl;
+	// std::cout << "Hello there"<< std::endl;
 	Bios bios;
 	Bios::BiosState state = bios.loadBios(biosPath);
 

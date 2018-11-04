@@ -44,6 +44,25 @@ Bios::BiosState Bios::loadBios(std::string path)
 
     if (m_data.size() != biosSize)
         return BIOS_STATE_INVALID_BIOS_SIZE;
+    //##################### old version
+    // FILE *file;
+    // if((file  = fopen(path.c_str(), "rb")) == NULL)
+    // {
+    //     return BIOS_STATE_INCORRECT_FILENAME;
+    // }
+
+    // size_t bios_size = 512 * 1024;
+    // size_t bytes_readed;
+    // m_data.resize(bios_size);
+
+    // bytes_readed = fread(m_data.data(), sizeof(uint8_t), bios_size, file);
+
+    // fclose(file);
+
+    // if(bytes_readed != bios_size)
+    //     return BIOS_STATE_INVALID_BIOS_SIZE;
+
+    return BIOS_STATE_SUCCESS;
 }
 
 uint32_t Bios::load32(uint32_t offset)
