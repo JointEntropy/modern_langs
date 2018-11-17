@@ -185,13 +185,28 @@ Cpu::InstructionType Cpu::decodeAndExecute(const Instruction& instruction)
 //----------------------------------------------
 Cpu::InstructionType Cpu::runNextInstuction()
 {
-	// Fixme
-	uint32_t pc = m_pc;
-	Instruction instruction = load32(pc);
-	printf("Instruction addr %d \n", &pc);
-	m_pc = pc + 4;
-	return decodeAndExecute(instruction);
-	//return INSTRUCTION_TYPE_UNKNOWN;
+	// c 65 гайда
+	Instruction instruction = m_nextInstruction;
+	m_nextInstruction = load32(m_pc);
+	Instruction::InstructionStatus status = m_nextInstruction.getInstructionStatus();
+	if(status == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS || status == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
+	{
+		return INSTRUCTION_TYPE_UNKNOWN;
+	}
+	m_pc += 4;
+	if(status == Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
+	{
+		return INSTRUCTION_TYPE_NOT_IMPLEMENTED;
+	}
+	RegisterIndex index = m_load.m_registerIndex;
+	uint32_t value = m_load.m_registerValue;
+	setRegisterValue(index, value);
+	// We reset the load to target register 0 for the next instruction
+	m_load = RegisterData(RegisterIndex(0), 0);
+	InstructionType run_result = decodeAndExecute(instruction);
+	// Copy the output registers as input for the next instruction
+	memcpy(m_regs, m_outRegs, sizeof(m_regs));
+	return run_result;
 }
 
 //--------------------------------------------------------------
@@ -212,7 +227,7 @@ Cpu::InstructionType Cpu::runNextInstuction()
 Cpu::InstructionType Cpu::opcodeLUI(const Instruction& instruction)
 {
 	uint32_t tmp = instruction.getImmediateValue();
-	uint32_t target = instruction.getRegisterTargetIndex();
+	RegisterIndex target = instruction.getRegisterTargetIndex();
 	uint32_t value = tmp << 16;
 	setRegisterValue(target, value);
 	return INSTRUCTION_TYPE_LUI;
@@ -257,7 +272,14 @@ Cpu::InstructionType Cpu::opcodeSW(const Instruction& instruction)
 //---------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeSLL(const Instruction& instruction)
 {
-	// Fixme
+	// TODO чекнуть логику сдвига и сохранения результата в регистр.x
+	uint32_t val = instruction.getShiftImmediateValue();
+	RegisterIndex target = instruction.getRegisterTargetIndex();
+	RegisterIndex dest = instruction.getRegisterDestinationIndex();
+
+	uint32_t value = getRegisterValue(target) << val;
+
+	setRegisterValue(dest, value);
 	return INSTRUCTION_TYPE_SLL;
 }
 
@@ -277,7 +299,15 @@ Cpu::InstructionType Cpu::opcodeSLL(const Instruction& instruction)
 //----------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeADDIU(const Instruction& instruction)
 {
-	// Fixme
+	//  с 27
+	/*The name is completely misleading: it seems to say
+	that the immediate value is treated as unsigned (i.e. not zero-extended instead
+	of sign-extended) but it’s not the case.*/
+	uint32_t ext_sign_val = instruction.getSignExtendedImmediateValue();
+	RegisterIndex target = instruction.getRegisterTargetIndex();
+	RegisterIndex source = instruction.getRegisterSourceIndex();
+	uint32_t value = getRegisterValue(source) + ext_sign_val;
+	setRegisterValue(target, value);
 	return INSTRUCTION_TYPE_ADDIU;
 }
 
@@ -295,7 +325,8 @@ Cpu::InstructionType Cpu::opcodeADDIU(const Instruction& instruction)
 //--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeJ(const Instruction& instruction)
 {
-	// Fixme
+	uint32_t i = instruction.getJumpTargetValue();
+	m_pc = (m_pc & 0xf0000000) | (i << 2);
 	return INSTRUCTION_TYPE_J;
 }
 
@@ -392,7 +423,15 @@ void branch(uint32_t offset, uint32_t& pc)
 //--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeBNE(const Instruction& instruction)
 {
-	// Fixme
+	uint32_t value = instruction.getSignExtendedImmediateValue();
+	RegisterIndex target = instruction.getRegisterTargetIndex();
+	RegisterIndex source = instruction.getRegisterSourceIndex();
+
+	if(getRegisterValue(target) != getRegisterValue(source))
+	{
+		branch(value, m_pc);
+	}
+
 	return INSTRUCTION_TYPE_BNE;
 }
 
@@ -443,7 +482,29 @@ Cpu::InstructionType Cpu::opcodeADDI(const Instruction& instruction)
 //--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeLW(const Instruction& instruction)
 {
-	// Fixme
+	if(m_sr & 0x10000 != 0)
+	{
+		// Cache is isolated, ignore write
+		LOG("Ignoring load while cache is isolated");
+		return INSTRUCTION_TYPE_CACHE_ISOLATED;
+	}
+
+	uint32_t temp_val = instruction.getSignExtendedImmediateValue();
+	RegisterIndex target = instruction.getRegisterTargetIndex();
+	RegisterIndex source = instruction.getRegisterSourceIndex();
+	uint32_t addr = getRegisterValue(source) + temp_val;
+	Instruction value = load32(addr);
+	Instruction::InstructionStatus status = value.getInstructionStatus();
+	if(status == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS || status == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
+	{
+		return INSTRUCTION_TYPE_UNKNOWN;
+	}
+	if(status == Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
+	{
+		return INSTRUCTION_TYPE_NOT_IMPLEMENTED;
+	}
+
+	m_load = RegisterData(target, value.getInstructionOpcode());
 	return INSTRUCTION_TYPE_LW;
 }
 
@@ -490,7 +551,22 @@ Cpu::InstructionType Cpu::opcodeADDU(const Instruction& instruction)
 //--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeSH(const Instruction& instruction)
 {
-	// Fixme
+	if(m_sr & 0x10000 != 0)
+	{
+		// Cache is isolated, ignore write
+		LOG("Ignoring store while cache is isolated");
+		return INSTRUCTION_TYPE_CACHE_ISOLATED;
+	}
+
+	uint32_t temp_val = instruction.getSignExtendedImmediateValue();
+	RegisterIndex target = instruction.getRegisterTargetIndex();
+	RegisterIndex source = instruction.getRegisterSourceIndex();
+
+	uint32_t addr = getRegisterValue(source) + temp_val;
+	uint16_t value = (uint16_t)getRegisterValue(target);
+
+	store16(addr, value);
+
 	return INSTRUCTION_TYPE_SH;
 }
 
@@ -512,7 +588,10 @@ Cpu::InstructionType Cpu::opcodeSH(const Instruction& instruction)
 //--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeJAL(const Instruction& instruction)
 {
-	// Fixme
+	
+	uint32_t ret_addr = m_pc;
+	setRegisterValue(RegisterIndex(31), ret_addr);
+	opcodeJ(instruction);
 	return INSTRUCTION_TYPE_JAL;
 }
 
@@ -548,7 +627,22 @@ Cpu::InstructionType Cpu::opcodeANDI(const Instruction& instruction)
 //--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeSB(const Instruction& instruction)
 {
-	// Fixme
+	if(m_sr & 0x10000 != 0)
+	{
+		// Cache is isolated, ignore write
+		LOG("Ignoring store while cache is isolated");
+		return INSTRUCTION_TYPE_CACHE_ISOLATED;
+	}
+
+	uint32_t temp_val = instruction.getSignExtendedImmediateValue();
+	RegisterIndex target = instruction.getRegisterTargetIndex();
+	RegisterIndex source = instruction.getRegisterSourceIndex();
+
+	uint32_t addr = getRegisterValue(source) + temp_val;
+	uint8_t value = (uint16_t)getRegisterValue(target);
+
+	store8(addr, value);
+
 	return INSTRUCTION_TYPE_SB;
 }
 
@@ -565,7 +659,8 @@ Cpu::InstructionType Cpu::opcodeSB(const Instruction& instruction)
 //--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeJR(const Instruction& instruction)
 {
-	// Fixme
+	RegisterIndex source = instruction.getRegisterSourceIndex();
+	m_pc = getRegisterValue(source);
 	return INSTRUCTION_TYPE_JR;
 }
 
@@ -595,7 +690,30 @@ Cpu::InstructionType Cpu::opcodeJR(const Instruction& instruction)
 //--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeLB(const Instruction& instruction)
 {
-	// Fixme
+	if(m_sr & 0x10000 != 0)
+	{
+		// Cache is isolated, ignore write
+		LOG("Ignoring load while cache is isolated");
+		return INSTRUCTION_TYPE_CACHE_ISOLATED;
+	}
+
+	uint32_t temp_val = instruction.getSignExtendedImmediateValue();
+	RegisterIndex target = instruction.getRegisterTargetIndex();
+	RegisterIndex source = instruction.getRegisterSourceIndex();
+
+	uint32_t addr = getRegisterValue(source) + temp_val;
+	Instruction value = load8(addr);
+	Instruction::InstructionStatus status = value.getInstructionStatus();
+	if(status == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS || status == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
+	{
+		return INSTRUCTION_TYPE_UNKNOWN;
+	}
+	if(status == Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
+	{
+		return INSTRUCTION_TYPE_NOT_IMPLEMENTED;
+	}
+
+	m_load = RegisterData(target, value.getInstructionOpcode());
 	return INSTRUCTION_TYPE_LB;
 }
 
@@ -618,7 +736,15 @@ Cpu::InstructionType Cpu::opcodeLB(const Instruction& instruction)
 //--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeBEQ(const Instruction& instruction)
 {
-	// Fixme
+	uint32_t temp_val = instruction.getSignExtendedImmediateValue();
+	RegisterIndex target = instruction.getRegisterTargetIndex();
+	RegisterIndex source = instruction.getRegisterSourceIndex();
+
+	if(getRegisterValue(target) == getRegisterValue(source))
+	{
+		branch(temp_val, m_pc);
+	}
+
 	return INSTRUCTION_TYPE_BEQ;
 }
 
@@ -630,7 +756,7 @@ uint32_t Cpu::getRegisterValue(RegisterIndex registerIndex) const
 		printf("Get register value::Index out of boundaries.\n");
 	}
 	// printf("Get value of %zu\n", &index);
-	return m_regs[registerIndex.m_index;
+	return m_regs[registerIndex.m_index];
 }
 
 void Cpu::setRegisterValue(RegisterIndex registerIndex, uint32_t value)
@@ -638,10 +764,10 @@ void Cpu::setRegisterValue(RegisterIndex registerIndex, uint32_t value)
 	// assert(registerIndex.m_index < _countof(m_outRegs), "Index out of boundaries");
 	// if (registerIndex.m_index > 0) m_outRegs[registerIndex.m_index] = value;
 	// assert(index < _countof(m_regs), "Index out of boundaries");
-	if (index >= 32)//_countof(m_regs))
+	if (registerIndex.m_index >= 32)//_countof(m_regs))
 	{
 		printf("Set register value::Index out of boundaries.\n");
 	}
 	// printf("Set %zu with value %zu\n", &index, &value);
-	if (index > 0) m_regs[index] = value;
+	if (registerIndex.m_index > 0) m_regs[registerIndex.m_index] = value;
 }

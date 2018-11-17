@@ -43,7 +43,12 @@ namespace pscx_memory
 		//---------------------------------------------------------
 		bool contains(uint32_t addr, uint32_t &offset) const
 		{
-			// Fixme
+			if(addr >= m_start && addr < m_start + m_length)
+			{
+				offset = addr - m_start;
+				return true;
+			}
+
 			return false;
 		}
 
