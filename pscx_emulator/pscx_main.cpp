@@ -149,13 +149,22 @@ int main(int argc, char** argv)
 	while (cpu.runNextInstuction() != Cpu::INSTRUCTION_TYPE_UNKNOWN);
 
 	if (dumpInstructionsAndRegsToFile)
+		std::cout << "Generating dump!" << std::endl;
 		generateDumpOutputFn(cpu);
 	if (runTesting)
 	{
+		std::cout << "Testing run!" << std::endl;
 		if (compareGoldenWithDump(cpu))
+		{
 			LOG("Dump matches golden file");
+			std::cout << "It\' all fine !" << std::endl;
+		}
 		else
+		{
+			std::cout << "Dump doesn't match to golden file" << std::endl;
 			LOG("Dump doesn't match to golden file");
+		}
+
 	}
 	return EXIT_SUCCESS;
 }

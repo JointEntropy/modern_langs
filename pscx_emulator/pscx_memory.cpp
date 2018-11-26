@@ -1,5 +1,10 @@
 #include "pscx_memory.h"
 
+
+#include "stdlib.h"
+#include "stdio.h"
+#include "stdint.h"
+
 uint32_t pscx_memory::maskRegion(uint32_t addr)
 {
 	// Index address space in 512MB chunks
