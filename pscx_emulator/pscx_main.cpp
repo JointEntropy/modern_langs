@@ -1,19 +1,16 @@
+#define _DEBUG true
+
 #include "pscx_bios.h"
 #include "pscx_cpu.h"
 #include "pscx_interconnect.h"
 
 #include <iostream>
-// <<<<<<< HEAD
-// #include "stdlib.h"
-// int main()
-// {
-// 	std::string biosPath = "roms/SCPH1001.BIN";
-// 	// std::cout << "Hello there"<< std::endl;
-// =======
 #include <fstream>
 
 #include <vector>
 #include <string>
+#include <iterator>
+
 
 struct ArgSetParser
 {
@@ -106,14 +103,23 @@ static bool compareGoldenWithDump(const Cpu& cpu)
 int main(int argc, char** argv)
 {
 	ArgSetParser parser(argc, argv);
-	const std::vector<std::string>& args = parser.args();
+	std::vector<std::string> args = parser.args();
 
-	// Should be two arguments at least
-	if (args.size() < 2)
-		printUsageAndExit(args[0].c_str());
+	std::string biosPath = std::string("roms/SCPH1001.BIN");
+	int32_t flag_default_bios_path = -1;
 
-	// Path to the BIOS
-	std::string biosPath = args[1];
+	for(int i = 1; i < args.size(); i++)
+	{
+		if(args[i].c_str()[0] != '-')
+			flag_default_bios_path = i;
+	}
+
+	if(flag_default_bios_path >= 0)
+		biosPath = args[flag_default_bios_path];
+
+	args.push_back(args[1]);
+	args.push_back(biosPath);
+
 
 	bool dumpInstructionsAndRegsToFile = false;
 	bool runTesting                    = false;
@@ -130,6 +136,7 @@ int main(int argc, char** argv)
 		if (args[i] == "-rt" || args[i] == "--run-testing")
 			runTesting = true;
 	}
+
 	Bios bios;
 	Bios::BiosState state = bios.loadBios(biosPath);
 
@@ -146,25 +153,16 @@ int main(int argc, char** argv)
 	Interconnect interconnect(bios);
 	Cpu cpu(interconnect);
 
-	while (cpu.runNextInstuction() != Cpu::INSTRUCTION_TYPE_UNKNOWN);
+	while (cpu.runNextInstruction() != Cpu::INSTRUCTION_TYPE_UNKNOWN);
 
 	if (dumpInstructionsAndRegsToFile)
-		std::cout << "Generating dump!" << std::endl;
 		generateDumpOutputFn(cpu);
 	if (runTesting)
 	{
-		std::cout << "Testing run!" << std::endl;
 		if (compareGoldenWithDump(cpu))
-		{
 			LOG("Dump matches golden file");
-			std::cout << "It\' all fine !" << std::endl;
-		}
 		else
-		{
-			std::cout << "Dump doesn't match to golden file" << std::endl;
 			LOG("Dump doesn't match to golden file");
-		}
-
 	}
 	return EXIT_SUCCESS;
 }

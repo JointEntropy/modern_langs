@@ -8,6 +8,7 @@
 #include "stdio.h"
 #include <iostream>
 // =======
+
 #include "pscx_memory.h"
 
 using namespace pscx_memory;
@@ -31,6 +32,7 @@ struct Cpu
 		m_regs[0] = 0x0;
 		m_outRegs[0] = 0x0;
 	}
+
 
 	enum InstructionType
 	{
@@ -61,7 +63,8 @@ struct Cpu
 		INSTRUCTION_TYPE_COUNT
 	};
 
-	InstructionType runNextInstuction();
+	InstructionType runNextInstruction();
+
 
 	const uint32_t* getRegistersPtr() const;
 	const std::vector<uint32_t>& getInstructionsDump() const;
