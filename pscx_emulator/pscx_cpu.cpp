@@ -279,7 +279,7 @@ Cpu::InstructionType Cpu::opcodeSLL(const Instruction& instruction)
 
 	uint32_t value = getRegisterValue(target) << val;
 
-	setRegisterValue(dest, value);
+	setRegisterValue(target, value);
 	return INSTRUCTION_TYPE_SLL;
 }
 
