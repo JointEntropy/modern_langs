@@ -6,11 +6,10 @@
 
 #define assert(message, ...) do { \
     if(!(__VA_ARGS__)) { \
-         \
+        /*error code*/ \
     } \
 } while(0)
 
-// uint32_t Cpu::load32(uint32_t addr)
 
 static void branch(uint32_t offset, uint32_t& pc);
 
@@ -82,11 +81,11 @@ Cpu::InstructionType Cpu::decodeAndExecute(const Instruction& instruction)
 		break;
 	case /*LUI*/0b001111:
 		//---------------------------------
-		/*
-			LUI -- Load upper immediate
-			Description:
-			The immediate value is shifted left 16 bits and stored in the register. The lower 16 bits are zeroes
-		*/
+               /*
+                       LUI -- Load upper immediate
+                       Description:
+                       The immediate value is shifted left 16 bits and stored in the register. The lower 16 bits are zeroes
+               */
 		// TODO : call LUI instruction.
 		// Rust:
 		// 0b001111 => self.op_lui(instruction)
@@ -142,7 +141,6 @@ Cpu::InstructionType Cpu::decodeAndExecute(const Instruction& instruction)
 	m_debugInstructions.push_back(instruction.getInstructionOpcode());
 	return instructionType;
 }
-
 //----------------------------------------------
 // TODO : to implement the runNextInstruction function.
 // It should fetch an instruction at program counter (PC) register,
@@ -183,32 +181,45 @@ Cpu::InstructionType Cpu::decodeAndExecute(const Instruction& instruction)
 //     self.regs = self.out_regs
 // }
 //----------------------------------------------
-Cpu::InstructionType Cpu::runNextInstuction()
+
+Cpu::InstructionType Cpu::runNextInstruction()
 {
-	// c 65 гайда
 	Instruction instruction = m_nextInstruction;
+
 	m_nextInstruction = load32(m_pc);
+
 	Instruction::InstructionStatus status = m_nextInstruction.getInstructionStatus();
+
 	if(status == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS || status == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
 	{
 		return INSTRUCTION_TYPE_UNKNOWN;
 	}
+
+
 	m_pc += 4;
+
 	if(status == Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
 	{
 		return INSTRUCTION_TYPE_NOT_IMPLEMENTED;
 	}
-	RegisterIndex index = m_load.m_registerIndex;
-	uint32_t value = m_load.m_registerValue;
-	setRegisterValue(index, value);
-	// We reset the load to target register 0 for the next instruction
+
+
+       RegisterIndex index = m_load.m_registerIndex;
+       uint32_t value = m_load.m_registerValue;
+       setRegisterValue(index, value);
+       // We reset the load to target register 0 for the next instruction
+
+
 	m_load = RegisterData(RegisterIndex(0), 0);
+
 	InstructionType run_result = decodeAndExecute(instruction);
-	// Copy the output registers as input for the next instruction
+       // Copy the output registers as input for the next instruction
+
 	memcpy(m_regs, m_outRegs, sizeof(m_regs));
+
+
 	return run_result;
 }
-
 //--------------------------------------------------------------
 // TODO : to implement the Load Upper Immediate function (LUI).
 // It should load the immediate value into the high 16 bits of the target register.
@@ -224,12 +235,13 @@ Cpu::InstructionType Cpu::runNextInstuction()
 //     self.set_reg(t, v);
 // }
 //---------------------------------------------------------------
+
 Cpu::InstructionType Cpu::opcodeLUI(const Instruction& instruction)
 {
-	uint32_t tmp = instruction.getImmediateValue();
-	RegisterIndex target = instruction.getRegisterTargetIndex();
-	uint32_t value = tmp << 16;
-	setRegisterValue(target, value);
+       uint32_t tmp = instruction.getImmediateValue();
+       RegisterIndex target = instruction.getRegisterTargetIndex();
+       uint32_t value = tmp << 16;
+       setRegisterValue(target, value);
 	return INSTRUCTION_TYPE_LUI;
 }
 
@@ -254,7 +266,6 @@ Cpu::InstructionType Cpu::opcodeSW(const Instruction& instruction)
 	return INSTRUCTION_TYPE_SW;
 }
 
-
 //--------------------------------------------------------------
 // TODO : to implement the Shift Left Logical function (SLL).
 // It should do left shift of target register value.
@@ -270,19 +281,19 @@ Cpu::InstructionType Cpu::opcodeSW(const Instruction& instruction)
 //     self.set_reg(d, v);
 // }
 //---------------------------------------------------------------
+
 Cpu::InstructionType Cpu::opcodeSLL(const Instruction& instruction)
 {
-	// TODO чекнуть логику сдвига и сохранения результата в регистр.x
+      // TODO чекнуть логику сдвига и сохранения результата в регистр.x
 	uint32_t val = instruction.getShiftImmediateValue();
 	RegisterIndex target = instruction.getRegisterTargetIndex();
 	RegisterIndex dest = instruction.getRegisterDestinationIndex();
 
 	uint32_t value = getRegisterValue(target) << val;
-
 	setRegisterValue(target, value);
 	return INSTRUCTION_TYPE_SLL;
-}
 
+}
 //--------------------------------------------------------------
 // TODO : to implement the Add Immediate Unsigned function (ADDIU).
 // It should add source register value and sign extended immediate value.
@@ -297,20 +308,25 @@ Cpu::InstructionType Cpu::opcodeSLL(const Instruction& instruction)
 //     self.set_reg(t, v);
 // }
 //----------------------------------------------------------------
+
 Cpu::InstructionType Cpu::opcodeADDIU(const Instruction& instruction)
 {
-	//  с 27
-	/*The name is completely misleading: it seems to say
-	that the immediate value is treated as unsigned (i.e. not zero-extended instead
-	of sign-extended) but it’s not the case.*/
-	uint32_t ext_sign_val = instruction.getSignExtendedImmediateValue();
+      //  с 27
+      /*The name is completely misleading: it seems to say
+      that the immediate value is treated as unsigned (i.e. not zero-extended instead
+      of sign-extended) but it’s not the case.*/
+      uint32_t ext_sign_val = instruction.getSignExtendedImmediateValue();
+
+	uint32_t val = instruction.getSignExtendedImmediateValue();
 	RegisterIndex target = instruction.getRegisterTargetIndex();
 	RegisterIndex source = instruction.getRegisterSourceIndex();
-	uint32_t value = getRegisterValue(source) + ext_sign_val;
+
+	uint32_t value = getRegisterValue(source) + val;
+
 	setRegisterValue(target, value);
+
 	return INSTRUCTION_TYPE_ADDIU;
 }
-
 //--------------------------------------------------------------
 // TODO : to implement the Jump function (J).
 // It should change the value of the PC register and perform jumping
@@ -325,8 +341,8 @@ Cpu::InstructionType Cpu::opcodeADDIU(const Instruction& instruction)
 //--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeJ(const Instruction& instruction)
 {
-	uint32_t i = instruction.getJumpTargetValue();
-	m_pc = (m_pc & 0xf0000000) | (i << 2);
+      uint32_t i = instruction.getJumpTargetValue();
+      m_pc = (m_pc & 0xf0000000) | (i << 2);
 	return INSTRUCTION_TYPE_J;
 }
 
@@ -404,6 +420,7 @@ void branch(uint32_t offset, uint32_t& pc)
 	pc -= 4;
 }
 
+ 
 //--------------------------------------------------------------
 // TODO : to implement the Branch If Not Equal function (BNE).
 // It should compare values that are stored in source and tagret
@@ -423,15 +440,14 @@ void branch(uint32_t offset, uint32_t& pc)
 //--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeBNE(const Instruction& instruction)
 {
-	uint32_t value = instruction.getSignExtendedImmediateValue();
+
+	uint32_t val = instruction.getSignExtendedImmediateValue();
 	RegisterIndex target = instruction.getRegisterTargetIndex();
 	RegisterIndex source = instruction.getRegisterSourceIndex();
-
 	if(getRegisterValue(target) != getRegisterValue(source))
 	{
-		branch(value, m_pc);
+		branch(val, m_pc);
 	}
-
 	return INSTRUCTION_TYPE_BNE;
 }
 
@@ -449,7 +465,6 @@ Cpu::InstructionType Cpu::opcodeADDI(const Instruction& instruction)
 
 	return INSTRUCTION_TYPE_ADDI;
 }
-
 //--------------------------------------------------------------
 // TODO : to implement the Load Word function (LW).
 // It should load 32 bit instruction from the memory.
@@ -480,6 +495,7 @@ Cpu::InstructionType Cpu::opcodeADDI(const Instruction& instruction)
 //     self.load = RegisterData(t, v.instruction);
 // }
 //--------------------------------------------------------------
+
 Cpu::InstructionType Cpu::opcodeLW(const Instruction& instruction)
 {
 	if(m_sr & 0x10000 != 0)
@@ -489,10 +505,10 @@ Cpu::InstructionType Cpu::opcodeLW(const Instruction& instruction)
 		return INSTRUCTION_TYPE_CACHE_ISOLATED;
 	}
 
-	uint32_t temp_val = instruction.getSignExtendedImmediateValue();
+	uint32_t val = instruction.getSignExtendedImmediateValue();
 	RegisterIndex target = instruction.getRegisterTargetIndex();
 	RegisterIndex source = instruction.getRegisterSourceIndex();
-	uint32_t addr = getRegisterValue(source) + temp_val;
+	uint32_t addr = getRegisterValue(source) + val;
 	Instruction value = load32(addr);
 	Instruction::InstructionStatus status = value.getInstructionStatus();
 	if(status == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS || status == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
@@ -527,7 +543,6 @@ Cpu::InstructionType Cpu::opcodeADDU(const Instruction& instruction)
 	setRegisterValue(instruction.getRegisterDestinationIndex(), getRegisterValue(registerSourceIndex) + getRegisterValue(registerTargetIndex));
 	return INSTRUCTION_TYPE_ADDU;
 }
-
 //--------------------------------------------------------------
 // TODO : to implement the Store Halfword function (SH).
 // It should store 16 bit value into the memory.
@@ -549,6 +564,7 @@ Cpu::InstructionType Cpu::opcodeADDU(const Instruction& instruction)
 //     self.store16(addr, v as u16);
 // }
 //--------------------------------------------------------------
+
 Cpu::InstructionType Cpu::opcodeSH(const Instruction& instruction)
 {
 	if(m_sr & 0x10000 != 0)
@@ -586,12 +602,16 @@ Cpu::InstructionType Cpu::opcodeSH(const Instruction& instruction)
 //     self.op_j(instruction);
 // }
 //--------------------------------------------------------------
+
 Cpu::InstructionType Cpu::opcodeJAL(const Instruction& instruction)
 {
 	
 	uint32_t ret_addr = m_pc;
+
 	setRegisterValue(RegisterIndex(31), ret_addr);
+
 	opcodeJ(instruction);
+
 	return INSTRUCTION_TYPE_JAL;
 }
 
@@ -603,7 +623,6 @@ Cpu::InstructionType Cpu::opcodeANDI(const Instruction& instruction)
 	setRegisterValue(registerTargetIndex, getRegisterValue(registerSourceIndex) & instruction.getImmediateValue());
 	return INSTRUCTION_TYPE_ANDI;
 }
-
 //--------------------------------------------------------------
 // TODO : to implement the Store Byte function (SB).
 // It should store 8 bit value into the memory.
@@ -625,6 +644,7 @@ Cpu::InstructionType Cpu::opcodeANDI(const Instruction& instruction)
 //     self.store8(addr, v as u8);
 // }
 //--------------------------------------------------------------
+
 Cpu::InstructionType Cpu::opcodeSB(const Instruction& instruction)
 {
 	if(m_sr & 0x10000 != 0)
@@ -657,10 +677,11 @@ Cpu::InstructionType Cpu::opcodeSB(const Instruction& instruction)
 //     self.pc = self.reg(s);
 // }
 //--------------------------------------------------------------
+
 Cpu::InstructionType Cpu::opcodeJR(const Instruction& instruction)
 {
-	RegisterIndex source = instruction.getRegisterSourceIndex();
-	m_pc = getRegisterValue(source);
+      RegisterIndex source = instruction.getRegisterSourceIndex();
+      m_pc = getRegisterValue(source);
 	return INSTRUCTION_TYPE_JR;
 }
 
@@ -688,6 +709,7 @@ Cpu::InstructionType Cpu::opcodeJR(const Instruction& instruction)
 //     self.load = RegisterData(t, v as u32);
 // }
 //--------------------------------------------------------------
+
 Cpu::InstructionType Cpu::opcodeLB(const Instruction& instruction)
 {
 	if(m_sr & 0x10000 != 0)
@@ -697,11 +719,11 @@ Cpu::InstructionType Cpu::opcodeLB(const Instruction& instruction)
 		return INSTRUCTION_TYPE_CACHE_ISOLATED;
 	}
 
-	uint32_t temp_val = instruction.getSignExtendedImmediateValue();
+	uint32_t val = instruction.getSignExtendedImmediateValue();
 	RegisterIndex target = instruction.getRegisterTargetIndex();
 	RegisterIndex source = instruction.getRegisterSourceIndex();
 
-	uint32_t addr = getRegisterValue(source) + temp_val;
+	uint32_t addr = getRegisterValue(source) + val;
 	Instruction value = load8(addr);
 	Instruction::InstructionStatus status = value.getInstructionStatus();
 	if(status == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS || status == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
@@ -716,7 +738,6 @@ Cpu::InstructionType Cpu::opcodeLB(const Instruction& instruction)
 	m_load = RegisterData(target, value.getInstructionOpcode());
 	return INSTRUCTION_TYPE_LB;
 }
-
 //--------------------------------------------------------------
 // TODO : to implement the Branch If Equal function (BEQ).
 // It should compare values that are stored in source and tagret
@@ -734,40 +755,34 @@ Cpu::InstructionType Cpu::opcodeLB(const Instruction& instruction)
 //     }
 // }
 //--------------------------------------------------------------
+
 Cpu::InstructionType Cpu::opcodeBEQ(const Instruction& instruction)
 {
-	uint32_t temp_val = instruction.getSignExtendedImmediateValue();
-	RegisterIndex target = instruction.getRegisterTargetIndex();
-	RegisterIndex source = instruction.getRegisterSourceIndex();
+       uint32_t temp_val = instruction.getSignExtendedImmediateValue();
+       RegisterIndex target = instruction.getRegisterTargetIndex();
+       RegisterIndex source = instruction.getRegisterSourceIndex();
+ 
+       if(getRegisterValue(target) == getRegisterValue(source))
+        {
+               branch(temp_val, m_pc);
+        }
 
-	if(getRegisterValue(target) == getRegisterValue(source))
-	{
-		branch(temp_val, m_pc);
-	}
-
-	return INSTRUCTION_TYPE_BEQ;
 }
 
 uint32_t Cpu::getRegisterValue(RegisterIndex registerIndex) const
 {
-	// assert(registerIndex.m_index < _countof(m_regs), "Index out of boundaries");
-	if (registerIndex.m_index >= 32)  //_countof(m_regs)
-	{
-		printf("Get register value::Index out of boundaries.\n");
-	}
-	// printf("Get value of %zu\n", &index);
+       // assert(registerIndex.m_index < _countof(m_regs), "Index out of boundaries");
+       if (registerIndex.m_index >= 32)  //_countof(m_regs)
+       {
+              printf("Get register value::Index out of boundaries.\n");
+       }
+       // printf("Get value of %zu\n", &index);
+
 	return m_regs[registerIndex.m_index];
 }
 
 void Cpu::setRegisterValue(RegisterIndex registerIndex, uint32_t value)
 {
-	// assert(registerIndex.m_index < _countof(m_outRegs), "Index out of boundaries");
-	// if (registerIndex.m_index > 0) m_outRegs[registerIndex.m_index] = value;
-	// assert(index < _countof(m_regs), "Index out of boundaries");
-	if (registerIndex.m_index >= 32)//_countof(m_regs))
-	{
-		printf("Set register value::Index out of boundaries.\n");
-	}
-	// printf("Set %zu with value %zu\n", &index, &value);
-	if (registerIndex.m_index > 0) m_regs[registerIndex.m_index] = value;
+	assert(registerIndex.m_index < _countof(m_outRegs), "Index out of boundaries");
+	if (registerIndex.m_index > 0) m_outRegs[registerIndex.m_index] = value;
 }
