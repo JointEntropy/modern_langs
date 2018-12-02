@@ -17,3 +17,10 @@ sh clean
 make -f makefile
 ./pscx_main
 ```
+
+App options:
+```
+-h    | --help                        Print this usage message
+-dump | --dump-instructions-registers Dump instructions and registers to the file
+-rt   | --run-testing                 Compare output results with the golden file
+```
