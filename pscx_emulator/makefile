@@ -26,7 +26,3 @@ pscx_ram.o: pscx_ram.cpp
 
 pscx_main.o: pscx_main.cpp
 	g++ -g -c pscx_main.cpp -std=c++0x
-
-clean:
-	rm -rf *.o pscx_main
-
